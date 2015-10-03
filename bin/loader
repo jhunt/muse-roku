@@ -1,0 +1,70 @@
+#!/bin/bash
+
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." ; pwd)
+
+load_config_file() {
+  local file=${1:?"load_config_file() - no file argument given"}
+
+  local n=0
+  while IFS='' read -r l || [[ -n ${l} ]]; do
+    n=$(( n + 1 ))
+    l="${l#"${l%%[![:space:]]*}"}" # remove leading whitespace
+    l="${l%"${l##*[![:space:]]}"}" # remove trailing whitespace
+    [[ -z "${l}" || ${l:0:1} == "#" ]] && continue
+
+    read -r key value rest <<<"${l}"
+    if [[ -n ${key} && -n ${value} && -z ${rest} ]]; then
+      case ${key} in
+      (ip|device|address) ROKU_IP=${value}       ;;
+      (user|username)     ROKU_USERNAME=${value} ;;
+      (pass|password)     ROKU_PASSWORD=${value} ;;
+      (*) echo >&2 "ignoring nrecognized configuration key '${key}'" ;;
+      esac
+    fi
+  done < ${file}
+}
+local_config() {
+  local found=0
+  if [[ -f ${ROOT}/.roku ]]; then
+    found=1 ; load_config_file "${ROOT}/.roku"
+  fi
+  if [[ -f ${HOME}/.roku ]]; then
+    found=1 ; load_config_file "${HOME}/.roku"
+  fi
+
+  local ok=1
+  if [[ -z ${ROKU_IP} ]]; then
+    ok=0 ; echo >&2 "No Roku device IP was configured"
+  fi
+  if [[ -z ${ROKU_USERNAME} ]]; then
+    ok=0 ; echo >&2 "No Roku username was configured"
+  fi
+  if [[ -z ${ROKU_PASSWORD} ]]; then
+    ok=0 ; echo >&2 "No Roku password was configured"
+  fi
+
+  if [[ $ok == 0 ]]; then
+    if [[ $found == 0 ]]; then
+      echo >&2 "Did you forget to create a \`.roku' configuration file?"
+      echo >&2 " (either in the project root or your home directory...)"
+    fi
+    exit 1
+  fi
+}
+
+main() {
+  local_config
+  cd ${ROOT}
+  rm -f pkg.zip
+  set -e
+  zip -r pkg.zip manifest source/ assets/
+  curl --user "${ROKU_USERNAME}:${ROKU_PASSWORD}" --digest -sS \
+       -F "mysubmit=Install" \
+       -F "archive=@pkg.zip" \
+       -F "passwd=" \
+       http://${ROKU_IP}/plugin_install |\
+          grep '<font color' |\
+          sed -e 's/<font color="red">//;s@</font>@@'
+}
+
+main
