@@ -414,6 +414,7 @@ function new_player(root as string) as object
 			})
 		end for
 		m.player.setnext(info.children.current)
+		m.player.setloop(true)
 		m.player.play()
 		m.paused = false
 
