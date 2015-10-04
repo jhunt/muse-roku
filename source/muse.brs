@@ -376,8 +376,8 @@ function new_player(root as string) as object
 		}
 
 		cover = invalid
-		if m.fs.exists("ext1:/" + info.root + "/muse.png") then
-			cover = createobject("roBitMap", "ext1:/" + info.root + "/muse.png")
+		if m.fs.exists("ext1:/" + info.root + "/album.png") then
+			cover = createobject("roBitMap", "ext1:/" + info.root + "/album.png")
 		else
 			cover = createobject("roBitMap", "pkg:/assets/img/album.png")
 		end if
