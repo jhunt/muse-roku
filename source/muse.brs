@@ -182,6 +182,8 @@ function new_player(root as string) as object
 			end function
 		end if
 
+		if m.debug then print "drawing listing() page of "; lst.items.count(); " item(s)"
+
 		INDENT = 20
 		x = 20
 		y = 20
@@ -402,6 +404,10 @@ function new_player(root as string) as object
 		m.player.stop()
 		m.player.clearcontent()
 		for each track in info.children.items
+			if m.debug then
+				print "adding track "; track.title
+				print "  (at ext1:/"; track.path; ")"
+			end if
 			m.player.addcontent({
 				url          : "ext1:/" + track.path
 				streamformat : "flac"                     ' FIXME
@@ -416,8 +422,15 @@ function new_player(root as string) as object
 
 	this.lookup = function (path as string) as object
 		jsonfile = "ext1:/" + path + "/muse.json"
+		if m.debug then print "checking metadata in "; jsonfile
 		if not m.fs.exists(jsonfile) then return invalid
 
+		if m.debug then
+			print jsonfile; ": "
+			print "----------------------------------------------------------"
+			print readasciifile(jsonfile)
+			print "----------------------------------------------------------"
+		end if
 		data = parsejson(readasciifile(jsonfile))
 		if not data.doesexist("children") then
 			data.children = {
@@ -451,6 +464,26 @@ function new_player(root as string) as object
 		end if
 	end function
 
+	this.scan_check = function (prefix as string, path as string) as void
+		if m.fs.exists("ext1:/" + path + "/muse.json")
+			info = m.lookup(path)
+			if info.children.items.count() = 0 then
+				print "EMPTY: "; prefix ; path
+			end if
+
+			for each item in info.children.items
+				m.scan_check(prefix + "  ", item.path)
+			end for
+		else
+			m.player.stop()
+			m.player.addcontent({
+				url          : "ext:/" + path
+				streamformat : "flac"
+			})
+			m.player.clearcontent()
+		end if
+	end function
+
 	return this
 end function
 
@@ -470,6 +503,7 @@ end function
 function main() as void
 	p = new_player("/")
 	p.go("/")
+	'p.scan_check("", "/")
 	p.event_loop()
 end function
 
